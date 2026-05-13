@@ -1,0 +1,12 @@
+# Config used by docker-compose for local end-to-end testing.
+# Short check_interval so you can see DOWN/RECOVERY transitions quickly.
+
+check_interval_seconds: 5
+default_timeout_seconds: 5
+fail_threshold: 2
+repeat_interval_seconds: 30
+
+services:
+  - name: mock-target
+    url: http://mock-target:8080/
+    expect_text_contains: "Identity Management"

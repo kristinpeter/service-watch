@@ -1,0 +1,64 @@
+# Local test rig.
+# - mock-target: an HTTP server we control. Returns 200 by default; touch
+#   /tmp/mock/down inside the container to make it return 503.
+# - mock-webex: prints any message that would have been sent to Webex.
+# - service-watch: probes mock-target and posts "alerts" to mock-webex.
+#
+# Usage:
+#   docker compose up --build
+#   # in another terminal, to simulate an outage:
+#   docker compose exec mock-target touch /tmp/mock/down
+#   # to recover:
+#   docker compose exec mock-target rm /tmp/mock/down
+#   # watch service-watch + mock-webex logs to see DOWN/RECOVERY messages
+
+services:
+
+  mock-target:
+    image: python:3.11-slim
+    command: >
+      python -c "
+      import http.server, os, socketserver;
+      os.makedirs('/tmp/mock', exist_ok=True);
+      class H(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+          if os.path.exists('/tmp/mock/down'):
+            self.send_response(503); self.end_headers(); self.wfile.write(b'<html>503 Service Unavailable</html>')
+          else:
+            self.send_response(200); self.end_headers(); self.wfile.write(b'<html>Identity Management - mock OK</html>')
+        def log_message(self, *a): pass
+      socketserver.TCPServer(('', 8080), H).serve_forever()
+      "
+
+  mock-webex:
+    image: python:3.11-slim
+    command: >
+      python -c "
+      import http.server, json;
+      class H(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+          n = int(self.headers.get('content-length', 0));
+          body = self.rfile.read(n);
+          try: msg = json.loads(body).get('markdown', body.decode());
+          except Exception: msg = body.decode();
+          print('=== mock-webex received message ===');
+          print(msg);
+          print('=== end ===', flush=True);
+          self.send_response(200); self.end_headers();
+        def log_message(self, *a): pass
+      http.server.HTTPServer(('', 9000), H).serve_forever()
+      "
+
+  service-watch:
+    build: .
+    depends_on:
+      - mock-target
+      - mock-webex
+    environment:
+      CONFIG_PATH: /etc/service-watch/config.yaml
+      WEBEX_BOT_TOKEN: mock-token
+      WEBEX_SPACE_ID: mock-space
+      WEBEX_API_URL: http://mock-webex:9000/v1/messages
+      LOG_LEVEL: INFO
+    volumes:
+      - ./deploy/local/test-config.yaml:/etc/service-watch/config.yaml:ro

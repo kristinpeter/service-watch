@@ -1,0 +1,23 @@
+# service-watch config — copy to /etc/service-watch/config.yaml in the pod
+# (or mount via ConfigMap in OpenShift).
+
+check_interval_seconds: 60
+default_timeout_seconds: 10
+fail_threshold: 2
+
+# Repeat-alert cadence while a service stays DOWN.
+# 0 = disabled (first alert + recovery only; standard for small setups).
+# Set to e.g. 3600 (1h) if you want a periodic reminder so a long outage
+# stays visible in Webex.
+repeat_interval_seconds: 0
+
+services:
+  - name: freeipa-web
+    url: https://ipa.example.com/
+    expect_text_contains: "Identity Management"
+    timeout_seconds: 15
+    runbook_url: https://wiki.example.com/runbooks/freeipa-web
+
+  - name: gitlab-pages
+    url: https://pages.example.com/
+    # no runbook_url → alert will show fallback generic triage steps

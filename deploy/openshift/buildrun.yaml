@@ -1,0 +1,16 @@
+# Shipwright BuildRun — actually runs a build of the `service-watch` Build.
+# Uses generateName so each `oc create -f buildrun.yaml` produces a fresh
+# uniquely-named BuildRun (avoids name collisions).
+#
+# Trigger: `oc create -f buildrun.yaml`
+# Watch:   `oc get buildruns -n infra-watch -w`
+# Logs:    `oc logs -f buildrun/<name> -n infra-watch` (or `shp build run service-watch -F` with the shp CLI)
+
+apiVersion: shipwright.io/v1beta1
+kind: BuildRun
+metadata:
+  generateName: service-watch-
+  namespace: infra-watch
+spec:
+  build:
+    name: service-watch

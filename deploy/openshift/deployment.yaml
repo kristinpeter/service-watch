@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-watch
+  namespace: infra-watch
+  labels:
+    app: service-watch
+spec:
+  replicas: 1                  # single-replica by design (no leader election)
+  strategy:
+    type: Recreate             # don't run two pods during rollouts
+  selector:
+    matchLabels:
+      app: service-watch
+  template:
+    metadata:
+      labels:
+        app: service-watch
+    spec:
+      # Pin to amd64 nodes. The image is built for linux/amd64 and won't run on arm64.
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      # Pod-level security context — applies to all containers.
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      # Harbor pull credentials. The `harbor-credentials` Secret (type
+      # kubernetes.io/dockerconfigjson) must exist in this namespace —
+      # see HANDBOOK for `oc create secret docker-registry ...` usage.
+      imagePullSecrets:
+        - name: harbor-credentials
+      containers:
+        - name: service-watch
+          image: REPLACE_WITH_HARBOR_HOST/REPLACE_WITH_HARBOR_PROJECT/service-watch:latest
+          imagePullPolicy: Always
+          # Container-level security — meets OpenShift restricted-v2 SCC.
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: CONFIG_PATH
+              value: /etc/service-watch/config.yaml
+            - name: LOG_LEVEL
+              value: INFO
+            - name: WEBEX_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: service-watch-webex
+                  key: WEBEX_BOT_TOKEN
+            - name: WEBEX_SPACE_ID
+              valueFrom:
+                secretKeyRef:
+                  name: service-watch-webex
+                  key: WEBEX_SPACE_ID
+          volumeMounts:
+            - name: config
+              mountPath: /etc/service-watch
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          # No HTTP endpoint to probe; process liveness is sufficient.
+      volumes:
+        - name: config
+          configMap:
+            name: service-watch-config

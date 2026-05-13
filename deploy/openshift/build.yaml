@@ -1,0 +1,53 @@
+# Shipwright Build — defines HOW to build the service-watch image.
+# This resource is NOT a build itself; it's a build *template*. Trigger an
+# actual build by creating a BuildRun (see buildrun.yaml).
+#
+# Strategy: buildah ClusterBuildStrategy (built-in with Shipwright; native
+# Dockerfile support, no Docker daemon required).
+#
+# amd64: enforced by nodeSelector on the build pod. The Dockerfile uses
+# `python:3.11-slim` which is multi-arch on Docker Hub; native build on an
+# amd64 node produces an amd64 image automatically.
+#
+# Registry: pushed to Harbor. The `harbor-credentials` Secret (type
+# kubernetes.io/dockerconfigjson) must exist in this namespace. Create it with:
+#   oc create secret docker-registry harbor-credentials \
+#     --namespace infra-watch \
+#     --docker-server=REPLACE_WITH_HARBOR_HOST \
+#     --docker-username='REPLACE_WITH_HARBOR_ROBOT_USERNAME' \
+#     --docker-password='REPLACE_WITH_HARBOR_ROBOT_PASSWORD'
+
+apiVersion: shipwright.io/v1beta1
+kind: Build
+metadata:
+  name: service-watch
+  namespace: infra-watch
+spec:
+  source:
+    type: Git
+    git:
+      url: REPLACE_WITH_GITLAB_REPO_URL  # e.g. https://gitlab.example.com/infra/service-watch.git
+      revision: main
+      # If the Git repo needs auth (private), create a Git credentials secret
+      # (basic-auth or ssh-auth) and uncomment:
+      # cloneSecret: service-watch-git-credentials
+
+  strategy:
+    name: buildah
+    kind: ClusterBuildStrategy
+
+  paramValues:
+    - name: dockerfile
+      value: Dockerfile
+
+  output:
+    # Harbor target. Replace with your Harbor host + project + image name.
+    image: REPLACE_WITH_HARBOR_HOST/REPLACE_WITH_HARBOR_PROJECT/service-watch:latest
+    pushSecret: harbor-credentials
+
+  # Pin the build pod to an amd64 node.
+  nodeSelector:
+    kubernetes.io/arch: amd64
+
+  # Cap so a runaway build doesn't sit forever.
+  timeout: 10m

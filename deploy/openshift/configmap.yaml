@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: service-watch-config
+  namespace: infra-watch
+data:
+  config.yaml: |
+    check_interval_seconds: 60
+    default_timeout_seconds: 10
+    fail_threshold: 2
+    # Set to e.g. 3600 to enable 1h "still down" reminders.
+    repeat_interval_seconds: 0
+
+    services:
+      - name: freeipa-web
+        url: https://REPLACE_WITH_INTERNAL_FREEIPA_URL/
+        expect_text_contains: "Identity Management"
+        timeout_seconds: 15
+        runbook_url: https://REPLACE_WITH_RUNBOOK_URL/freeipa-web
+
+      # Add more services here:
+      # - name: <name>
+      #   url: https://<host>/
+      #   runbook_url: https://...
