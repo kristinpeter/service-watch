@@ -1,5 +1,7 @@
 # service-watch
 
+[![CI](https://github.com/kristinpeter/service-watch/actions/workflows/ci.yml/badge.svg)](https://github.com/kristinpeter/service-watch/actions/workflows/ci.yml)
+
 HTTPS health-check monitor that posts actionable alerts to a Webex space.
 Runs on OpenShift as a single Deployment; monitors external services
 (typically Linux VMs running things like FreeIPA, GitLab, etc.) via HTTPS
